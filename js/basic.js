@@ -58,7 +58,7 @@
                 // if we're going in the same direction as the button, we can stop
                 if (stop || (pressed.indexOf( floorNum) >= 0)) {
                     // remove this floor from destinations
-                    elevator.destinationQueue.filter( (d) => (d !== floorNum));
+                    elevator.destinationQueue = elevator.destinationQueue.filter( (d) => (d !== floorNum));
                     // no need to call checkDestinationQueue as done in here...
                     elevator.goToFloor(floorNum, true);
                 }
