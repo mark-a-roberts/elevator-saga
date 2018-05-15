@@ -2,23 +2,45 @@
     init: function (elevators, floors) {
         console.clear();
         const weight = 0.3;
-        const maxFloor = floors.length-1;
+        const maxFloor = floors.length - 1;
 
-        let distance = function( elevator, floorNum) {
-            return Math.abs( elevator.currentFloor() - floorNum);
-        }
+        const distance = function (floorNum) {
+            return Math.abs(this.currentFloor() - floorNum);
+        };
 
-        let findIdle = function( floorNum) {
-            return elevators.filter( (elevator) => (elevator.destinationQueue.length == 0))
-                .sort( (a,b) => (distance(a, floorNum) - distance(b, floorNum)) );
+        const findIdle = function (floorNum) {
+            return elevators.filter((elevator) => (elevator.destinationQueue.length == 0))
+                .sort((a, b) => (a.distance(floorNum) - b.distance(floorNum)));
+        };
+
+        const controlUpDown = function () {
+            const floorNum = this.currentFloor();
+            const target = (this.destinationQueue.length > 0) ? this.destinationQueue[0] : floorNum;
+            let up = true, down = true;
+            switch (floorNum) {
+                case 0:
+                    down = false;
+                    break;
+                case maxFloor:
+                    up = false;
+                    break;
+                default:
+                    up = (target >= floorNum);
+                    down = (target <= floorNum);
+                    break;
+            }
+            this.goingUpIndicator(up);
+            this.goingDownIndicator(down)
         };
 
         floors.forEach(function (floor) {
             floor.on("up_button_pressed down_button_pressed", function () {
                 // find an idle elevator if possible
-                let choice = findIdle( floor.floorNum());
+                let choice = findIdle(floor.floorNum());
                 if (choice.length) {
-                    choice[0].goToFloor( floor.floorNum());
+                    let elevator = choice[0];
+                    elevator.goToFloor(floor.floorNum());
+                    elevator.controlUpDown();
                 }
             });
         });
@@ -26,6 +48,8 @@
         elevators.forEach(function (elevator, index) {
             // add an identifier to each elevator
             elevator.id = index;
+            elevator.controlUpDown = controlUpDown;
+            elevator.distance = distance;
 
             // event if elevator is doing nothing...
             elevator.on("idle", function () {
@@ -46,19 +70,20 @@
 
             // floor button pressed in elevator
             elevator.on("floor_button_pressed", function (floorNum) {
-                let target = floorNum;
+                const target = floorNum;
                 elevator.goToFloor(target);
+                elevator.controlUpDown();
+
             });
 
-
             elevator.on("passing_floor", function (floorNum, direction) {
-                let floor = floors[floorNum];
-                let pressed = elevator.getPressedFloors();
-                let stop = floor.buttonStates[direction] && (elevator.loadFactor() < weight);
+                const floor = floors[floorNum];
+                const pressed = elevator.getPressedFloors();
+                const stop = floor.buttonStates[direction] && (elevator.loadFactor() < weight);
                 // if we're going in the same direction as the button, we can stop
-                if (stop || (pressed.indexOf( floorNum) >= 0)) {
+                if (stop || (pressed.indexOf(floorNum) >= 0)) {
                     // remove this floor from destinations
-                    elevator.destinationQueue = elevator.destinationQueue.filter( (d) => (d !== floorNum));
+                    elevator.destinationQueue = elevator.destinationQueue.filter((d) => (d !== floorNum));
                     // no need to call checkDestinationQueue as done in here...
                     elevator.goToFloor(floorNum, true);
                 }
@@ -67,23 +92,8 @@
             elevator.on("stopped_at_floor", function (floorNum) {
                 // do something here
                 // control up and down indicators
-                // TODO: control up down indicators better
-                switch (floorNum) {
-                    case 0:
-                        up = true;
-                        down = false;
-                        break;
-                    case maxFloor:
-                        up = false;
-                        down = true;
-                        break;
-                    default:
-                        up = true;
-                        down = true;
-                        break;
-                }
-                elevator.goingUpIndicator(up);
-                elevator.goingDownIndicator(down)
+                elevator.controlUpDown();
+
             });
         });
 
